@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR GAME</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
+</head>
+<body>
+    <a-scene physics="debug: false" vr-mode-ui="enabled: true">
+        <a-sky color="#0A1F3A"></a-sky>
+
+        <a-plane 
+            position="0 0 0" 
+            rotation="-90 0 0" 
+            width="40" 
+            height="40" 
+            color="#07000" 
+            static-body
+        ></a-plane>
+
+        <a-entity id="player" movement-controls="speed: 0.15" position="0 1.6 8" kinematic-body>
+            <a-camera>
+                <a-cursor fuse="true" fuse-timeout="500"></a-cursor>
+            </a-camera>
+        </a-entity>
+
+        <a-box id="box1" collectible position="-8 1.5 0" rotation="20 30 10" color="#FF6347" dynamic-body="mass: 1" width="1.5" height="1.5" depth="1.5"></a-box>
+        <a-sphere id="sphere1" collectible position="12 2 -15" radius="1.8" color="#9370DB" dynamic-body="mass: 1"></a-sphere>
+        <a-cylinder id="cylinder1" collectible position="-15 2.5 10" radius="1" height="2.5" color="#20B2AA" dynamic-body="mass: 1"></a-cylinder>
+        <a-tetrahedron id="tetrahedron1" collectible position="5 3 -5" radius="2" color="#FFD700" dynamic-body="mass: 1"></a-tetrahedron>
+        <a-torus id="torus1" collectible position="-12 4 15" radius="2.5" radius-tubular="0.3" arc="180" color="#32CD32" dynamic-body="mass: 1"></a-torus>
+        <a-box id="box2" collectible position="18 1 -8" rotation="45 15 30" color="#FF4500" dynamic-body="mass: 1" width="2" height="1" depth="2"></a-box>
+        <a-sphere id="sphere2" collectible position="-20 2.2 -18" radius="2.2" color="#8A2BE2" dynamic-body="mass: 1"></a-sphere>
+        <a-cylinder id="cylinder2" collectible position="22 3 12" radius="1.2" height="3" color="#00CED1" dynamic-body="mass: 1"></a-cylinder>
+
+        <a-entity 
+            gltf-model="https://cdn.aframe.io/test-models/models/Tree/cloud_tree.glb"
+            position="-25 0 25"
+            scale="3 3 3"
+            static-body
+        ></a-entity>
+
+        <a-entity 
+            gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf"
+            position="25 1 -25"
+            scale="3 3 3"
+            rotation="0 -45 0"
+            static-body
+        ></a-entity>
+
+        <a-text 
+            id="scoreText"
+            value="Объектов: 0/8"
+            position="-1.8 2.6 -3"
+            color="#FFFFFF"
+            align="center"
+            width="8"
+            scale="1.5 1.5 1"
+        ></a-text>
+
+        <a-text 
+            id="timerText"
+            value="Таймер: 60с"
+            position="-1.8 2.2 -3"
+            color="#FFFF00"
+            align="center"
+            width="8"
+            scale="1.5 1.5 1"
+        ></a-text>
+
+        <a-entity id="gameOverPanel" visible="false">
+            <a-plane 
+                position="0 1.5 -2" 
+                width="5" 
+                height="2.5" 
+                color="#1A1A2E" 
+                opacity="0.95"
+            ></a-plane>
+            <a-text 
+                id="gameOverText"
+                value="Игра завершена!\nСобрано: 0"
+                position="0 2 -2"
+                color="#FF6B6B"
+                align="center"
+                width="8"
+                scale="1.3 1.3 1"
+            ></a-text>
+            <a-text 
+                id="restartText"
+                value="Нажми для рестарта"
+                position="0 1.1 -2"
+                color="#4ECDC4"
+                align="center"
+                width="8"
+                scale="1.2 1.2 1"
+            ></a-text>
+        </a-entity>
+
+        <a-entity light="type: ambient; color: #444"></a-entity>
+        <a-entity light="type: directional; color: #FFFFFF; intensity: 0.8" position="5 10 5"></a-entity>
+        <a-entity light="type: point; color: #FFA500; intensity: 0.5" position="0 3 0"></a-entity>
+    </a-scene>
+
+    <script>
+        let score = 0;
+        const totalObjects = 8;
+        let timeLeft = 60;
+        let gameActive = true;
+        let timerInterval;
+
+        AFRAME.registerComponent('collectible', {
+            init: function () {
+                this.collected = false;
+                
+                this.el.addEventListener('click', () => {
+                    if (!gameActive || this.collected) return;
+                    this.collectObject();
+                });
+
+                this.el.addEventListener('collide', (e) => {
+                    if (!gameActive || this.collected) return;
+                    
+                    const player = document.querySelector('#player');
+                    if (e.detail.body.el === player) {
+                        this.collectObject();
+                    }
+                });
+            },
+            collectObject: function () {
+                this.collected = true;
+                
+                const el = this.el;
+                el.setAttribute('visible', 'false');
+                el.parentNode.removeChild(el);
+                
+                score++;
+                document.querySelector('#scoreText').setAttribute('value', `Объектов: ${score}/${totalObjects}`);
+
+                if (score === totalObjects) {
+                    endGame(true);
+                }
+            }
+        });
+
+        function initGame() {
+            score = 0;
+            timeLeft = 60;
+            gameActive = true;
+
+            document.querySelector('#scoreText').setAttribute('value', `Объектов: ${score}/${totalObjects}`);
+            document.querySelector('#timerText').setAttribute('value', `Таймер: ${timeLeft}с`);
+            document.querySelector('#gameOverPanel').setAttribute('visible', 'false');
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            if (!gameActive) return;
+
+            timeLeft--;
+            document.querySelector('#timerText').setAttribute('value', `Таймер: ${timeLeft}с`);
+
+            if (timeLeft <= 0) {
+                endGame(false);
+            }
+        }
+
+        function endGame(isWin) {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            const message = isWin 
+                ? `Поздравляем! Все собраны!\nРезультат: ${score}` 
+                : `Время истекло!\nРезультат: ${score}`;
+
+            document.querySelector('#gameOverText').setAttribute('value', message);
+            document.querySelector('#gameOverPanel').setAttribute('visible', 'true');
+
+            document.querySelector('#gameOverPanel').addEventListener('click', () => {
+                location.reload();
+            });
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
